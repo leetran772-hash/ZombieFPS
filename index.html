@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OC Survival: milestone 1</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1b1a24; overflow: hidden; font-family: ui-monospace, Consolas, monospace; color: #fff6e0; user-select: none; }
+  canvas { display: block; }
+  #cross { position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; background: #fff6e0; border: 1px solid #2a2230; border-radius: 50%; opacity: .85; pointer-events: none; }
+  #hud { position: fixed; left: 12px; top: 10px; font-size: 13px; line-height: 1.5; text-shadow: 1px 1px 0 #2a2230; pointer-events: none; }
+  #hud b { color: #ffd36a; }
+  #start { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(27,26,36,.55); cursor: pointer; text-align: center; font-size: 15px; line-height: 1.8; text-shadow: 1px 1px 0 #2a2230; }
+  #start h1 { margin: 0 0 6px; font-size: 30px; color: #ffd36a; letter-spacing: 1px; }
+  #start.hide { display: none; }
+  #ui { position: fixed; inset: 0; pointer-events: none; }
+  #dmg { position: absolute; inset: 0; opacity: 0; transition: opacity .12s; background: radial-gradient(ellipse at center, transparent 40%, rgba(200,30,30,.75) 100%); }
+  #hit { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; opacity: 0; }
+  #hit.on, #hit.head, #hit.kill { opacity: 1; }
+  #hit::before, #hit::after { content: ""; position: absolute; left: 10px; top: -4px; width: 2px; height: 30px; background: #fff; transform: rotate(45deg); }
+  #hit::after { transform: rotate(-45deg); }
+  #hit.head::before, #hit.head::after { background: #ffd36a; }
+  #hit.kill::before, #hit.kill::after { background: #ff5a4a; }
+  #prompt { position: absolute; left: 50%; top: 60%; transform: translateX(-50%); font-size: 16px; padding: 4px 12px; background: rgba(42,34,48,.72); border: 2px solid #ffd36a; border-radius: 6px; opacity: 0; transition: opacity .1s; white-space: nowrap; }
+  #toasts { position: absolute; left: 50%; bottom: 150px; transform: translateX(-50%); text-align: center; }
+  .toast { margin-top: 4px; padding: 3px 10px; background: rgba(42,34,48,.78); border-radius: 4px; font-size: 14px; transition: opacity .7s; }
+  .toast.fade { opacity: 0; }
+  #bars { position: absolute; left: 14px; bottom: 14px; width: 220px; font-size: 12px; text-shadow: 1px 1px 0 #2a2230; }
+  .bar { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+  .bar span { width: 44px; opacity: .9; }
+  .bar i { flex: 1; height: 10px; background: rgba(42,34,48,.7); border: 1px solid #2a2230; }
+  .bar b { display: block; height: 100%; }
+  .flags { margin-top: 6px; min-height: 16px; }
+  .flags em { font-style: normal; margin-right: 8px; color: #cfe4d6; }
+  .flags em.bad { color: #ff7a6a; }
+  #wep { position: absolute; right: 18px; bottom: 14px; text-align: right; text-shadow: 1px 1px 0 #2a2230; }
+  .wname { font-size: 14px; opacity: .9; }
+  .ammo { font-size: 30px; color: #ffd36a; }
+  .ammo small { font-size: 16px; color: #fff6e0; }
+  #inv, #death { position: absolute; inset: 0; background: rgba(27,26,36,.72); pointer-events: auto; display: grid; place-items: center; }
+  .hidden { display: none !important; }
+  .panel { display: flex; gap: 24px; padding: 20px 24px; background: #3a3348; border: 3px solid #fff6e0; border-radius: 10px; box-shadow: 0 0 0 3px #2a2230; max-width: 92vw; }
+  .col h2 { margin: 0 0 10px; font-size: 16px; color: #ffd36a; font-weight: 400; }
+  .col h2 small { color: #cfe4d6; margin-left: 8px; }
+  .row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; cursor: pointer; }
+  .row label { width: 76px; font-size: 12px; opacity: .8; }
+  .row .nm { font-size: 12px; color: #cfe4d6; max-width: 130px; }
+  .arm { margin-top: 10px; font-size: 13px; color: #8fbf6a; }
+  .grid { display: grid; grid-template-columns: repeat(6, 52px); gap: 6px; }
+  .cell { width: 52px; height: 52px; background: var(--c, #54496a); border: 2px solid #2a2230; border-radius: 6px; position: relative; display: grid; place-items: center; cursor: pointer; font-size: 14px; font-weight: bold; color: #2a2230; text-shadow: 0 1px 0 rgba(255,255,255,.35); }
+  .cell.empty { background: #2c263a; cursor: default; }
+  .cell u { position: absolute; right: 3px; bottom: 1px; font-size: 11px; text-decoration: none; color: #fff6e0; text-shadow: 1px 1px 0 #2a2230; }
+  .cell:not(.empty):hover { border-color: #ffd36a; }
+  .tip { margin-top: 12px; max-width: 400px; min-height: 40px; font-size: 13px; line-height: 1.4; color: #cfe4d6; }
+  #death .box { text-align: center; padding: 30px 40px; background: #3a3348; border: 3px solid #e0524c; border-radius: 10px; }
+  #death h1 { margin: 0 0 8px; color: #ff7a6a; }
+  #death button { margin-top: 12px; padding: 8px 18px; font: inherit; background: #ffd36a; border: 2px solid #2a2230; border-radius: 6px; cursor: pointer; }
+
+</style>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
+</head>
+<body>
+<div id="cross"></div>
+<div id="hud"></div>
+<div id="start"><div><h1>ORANGE COUNTY</h1>Milestone 2: loot, clothes, guns, the dead<br><br>Click to play<br>W A S D move &nbsp; Shift sprint &nbsp; Space jump &nbsp; Mouse look<br>(no mouse lock? drag to look, arrow keys also turn)<br>Tab: inventory &nbsp; E: pick up / doors &nbsp; 1-4: weapon &nbsp; R: reload &nbsp; T: time of day &nbsp; N: new world</div></div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
